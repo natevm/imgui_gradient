@@ -8,6 +8,7 @@
 #include "MarkId.hpp"
 #include "Settings.hpp"
 
+
 namespace ImGG {
 
 /// A function that returns a random number between 0.f and 1.f whenever it is called.
@@ -79,6 +80,7 @@ private:
     MarkId   _mark_to_hide{};
 
     internal::HoverChecker _hover_checker{};
+    int selectedColorMap = 0;
 };
 
 } // namespace ImGG
