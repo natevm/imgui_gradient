@@ -6,6 +6,46 @@
 #include "imgui_draw.hpp"
 #include "internal.hpp"
 #include "tooltip.hpp"
+#include "embeddedColorMaps.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "../stb/stb_image.h"
+
+inline float srgb_to_linear(const float x)
+{
+    if (x <= 0.04045f) {
+        return x / 12.92f;
+    } else {
+        return std::pow((x + 0.055f) / 1.055f, 2.4f);
+    }
+}
+
+std::vector<ImGG::ColorRGBA> fromPNG(const uint8_t asPNG[],                                          
+                             size_t numBytes)                                                
+  {                                                                                          
+    int w, h, n;                                                                             
+    uint8_t *img_data = stbi_load_from_memory(asPNG, numBytes, &w, &h, &n, 4);               
+                                                                                             
+    if (n != 3 && n != 4)                                                                    
+      throw std::runtime_error("ColorMap::fromPNG: only supporting "                         
+                               "PNG files with either 3 or 4 channels");                     
+    std::vector<ImGG::ColorRGBA> values_;                                                                        
+    values_.reserve(w);                                                                      
+    for (std::size_t i = 0; i < w; ++i) {                                                    
+      ImGG::ColorRGBA v;                                                                               
+      v.x = img_data[i * 4 + 0] / 255.f;                                                     
+      v.y = img_data[i * 4 + 1] / 255.f;                                                     
+      v.z = img_data[i * 4 + 2] / 255.f;                                                     
+      v.w                                                                                    
+        = (n == 3)                                                                           
+        ? 1.f                                                                                
+        : img_data[i * 4 + 3] / 255.f;                                                       
+      // v.w = 1.f;                                                                          
+      values_.push_back(v);                                                                  
+    }                                                                                        
+                                                                                             
+    stbi_image_free(img_data);                                                               
+    return values_;                                                                          
+  }
 
 namespace ImGG {
 
@@ -371,7 +411,6 @@ auto GradientWidget::widget(
         ImGui::Dummy(ImVec2{0.f, 1.5f});
     }
 
-    const auto gradient_bar_position = ImVec2{internal::gradient_position(settings.horizontal_margin)};
     const auto gradient_size         = ImVec2{
         std::max( // To avoid a width equal to zero and library crash the minimum width value is 1.f
             1.f,
@@ -380,9 +419,45 @@ auto GradientWidget::widget(
                 settings.gradient_width
             )
                 ),
-                settings.gradient_height};
+                settings.gradient_height * 0.9f};
+    auto gradient_bar_position = ImVec2{internal::gradient_position(settings.horizontal_margin)};
+    gradient_bar_position.y += settings.gradient_height * 0.6f; //move it down so combo box can be placed above it
+    const auto picker_size = ImVec2{gradient_size.x, settings.gradient_height * 0.6f};
 
+    //Draw colomap picker
+    ImGui::PushItemWidth(picker_size.x);
+    auto current_item = EmbeddedColorMaps::names[selectedColorMap];
+    if (ImGui::BeginCombo("##combo", current_item))
+    {
+        for (int n = 0; n < IM_ARRAYSIZE(EmbeddedColorMaps::names); n++)
+        {
+            bool is_selected = (current_item == EmbeddedColorMaps::names[n]);
+            if (ImGui::Selectable(EmbeddedColorMaps::names[n], is_selected))
+            {
+                //TODO clear all the marks
+                gradient().clear();
+                selectedColorMap = n;
+                const int number_of_knobs = EmbeddedColorMaps::sizes[selectedColorMap]/4;
+                auto colormap = fromPNG(EmbeddedColorMaps::maps[selectedColorMap], EmbeddedColorMaps::sizes[selectedColorMap]);
+
+                for (int i = 0; i < colormap.size(); ++i)
+                {
+                    const auto position = RelativePosition{static_cast<float>(i) / (colormap.size() - 1)};
+                    add_mark_with_chosen_mode(position, rng, false);
+                    
+                    gradient().set_mark_color(_selected_mark, colormap[i]);
+                }
+                modified = true;
+            }
+            if (is_selected)
+                ImGui::SetItemDefaultFocus();
+        }
+        ImGui::EndCombo();
+    }
+    ImGui::PopItemWidth();
+    
     ImGui::BeginGroup();
+
     ImGui::InvisibleButton("gradient_editor", gradient_size);
     draw_gradient_bar(_gradient, gradient_bar_position, gradient_size);
 
