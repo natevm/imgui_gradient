@@ -7,6 +7,7 @@
 #include "HoverChecker.hpp"
 #include "MarkId.hpp"
 #include "Settings.hpp"
+#include <map>
 
 
 namespace ImGG {
@@ -73,6 +74,11 @@ private:
         const Settings& settings
     ) -> bool;
 
+    auto draw_transparency_editor(
+        ImVec2          editor_position,
+        ImVec2          editor_size
+    ) -> bool;
+
 private:
     Gradient _gradient{};
     MarkId   _selected_mark{};
@@ -81,6 +87,10 @@ private:
 
     internal::HoverChecker _hover_checker{};
     int selectedColorMap = 0;
+    std::map<float, ImVec2> transparency_points = {
+        {0.0f, ImVec2(0.0f, 1.0f)},
+        {1.0f, ImVec2(1.0f, 0.0f)}
+    };
 };
 
 } // namespace ImGG

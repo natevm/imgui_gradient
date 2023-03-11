@@ -195,6 +195,39 @@ static void draw_gradient_bar(
     );
 }
 
+auto GradientWidget::draw_transparency_editor(
+        ImVec2          editor_position,
+        ImVec2          editor_size) ->bool
+{
+    ImGui::InvisibleButton("##canvas", editor_size);
+    static auto offset = ImVec2(30, 30);
+    ImVec2 r_min = ImGui::GetItemRectMin();
+    ImVec2 r_max = ImGui::GetItemRectMax();
+    if (ImGui::IsItemActive() && ImGui::IsMouseClicked(ImGuiMouseButton_Left))
+    {
+        ImVec2 point((ImGui::GetIO().MouseClickedPos[0].x - r_min.x)/(r_max.x-r_min.x), 
+                        (ImGui::GetIO().MouseClickedPos[0].y - r_min.y)/(r_max.y-r_min.y));
+        transparency_points.insert_or_assign(point.x, point);
+    }
+
+
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    ImGui::PushClipRect(r_min, r_max, true);
+    draw_list->AddRectFilled(r_min, r_max, IM_COL32(30, 30, 30, 200));
+
+    ImVec2 p0 = transparency_points[0];
+    ImVec2 p1 = transparency_points[1];
+    for(auto it = ++(transparency_points.begin()); it != transparency_points.end(); it++)
+    {
+        p1 = it->second;
+        draw_list->AddLine(r_min +(p0)*(r_max-r_min), r_min + (p1)*(r_max-r_min), IM_COL32(255, 255, 255, 255), 4.0f);
+        p0 = p1;
+    }
+    ImGui::PopClipRect();
+    return true;
+}
+    
+
 static auto handle_interactions_with_hovered_mark(
     MarkId& dragged_mark,
     MarkId& selected_mark,
@@ -411,18 +444,27 @@ auto GradientWidget::widget(
         ImGui::Dummy(ImVec2{0.f, 1.5f});
     }
 
-    const auto gradient_size         = ImVec2{
+    const auto widget_size = ImVec2{
         std::max( // To avoid a width equal to zero and library crash the minimum width value is 1.f
             1.f,
             std::min( // When the window is smaller than gradient width we compute a relative width
                 ImGui::GetContentRegionAvail().x - settings.horizontal_margin * 2.f,
                 settings.gradient_width
-            )
+                    )
                 ),
-                settings.gradient_height * 0.9f};
+        settings.gradient_height};
+    const auto widget_position = ImVec2{internal::gradient_position(settings.horizontal_margin)};
+
+    const auto picker_size = ImVec2{widget_size.x, widget_size.y * 0.2f};
+
+    const auto gradient_bar_size = ImVec2{widget_size.x, widget_size.y * 0.3f};
     auto gradient_bar_position = ImVec2{internal::gradient_position(settings.horizontal_margin)};
-    gradient_bar_position.y += settings.gradient_height * 0.6f; //move it down so combo box can be placed above it
-    const auto picker_size = ImVec2{gradient_size.x, settings.gradient_height * 0.6f};
+    gradient_bar_position.y += settings.gradient_height * 0.2f + settings.horizontal_margin; //move it down so combo box can be placed above it
+
+
+    const auto transparency_editor_size = ImVec2{widget_size.x, widget_size.y * 0.4f};
+    auto transparency_editor_position = ImVec2{internal::gradient_position(settings.horizontal_margin)};
+    transparency_editor_position.y += gradient_bar_position.y + settings.horizontal_margin; //move it down so combo box can be placed above it
 
     //Draw colomap picker
     ImGui::PushItemWidth(picker_size.x);
@@ -458,8 +500,8 @@ auto GradientWidget::widget(
     
     ImGui::BeginGroup();
 
-    ImGui::InvisibleButton("gradient_editor", gradient_size);
-    draw_gradient_bar(_gradient, gradient_bar_position, gradient_size);
+    ImGui::InvisibleButton("gradient_editor", gradient_bar_size);
+    draw_gradient_bar(_gradient, gradient_bar_position, gradient_bar_size);
 
     const auto wants_to_add_mark{ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Left)}; // We need to declare it before drawing the marks because we want to
                                                                                                           // test if the mouse is hovering the gradient bar not the marks.
@@ -467,21 +509,21 @@ auto GradientWidget::widget(
     const auto res                    = draw_gradient_marks( // We declare it here because even if we cannot add a mark we need to draw gradient marks.
         mark_to_delete,
         gradient_bar_position,
-        gradient_size
+        gradient_bar_size
     );
     const auto mark_hitbox_is_hovered = res.hitbox_is_hovered;
     modified |= res.selected_mark_changed;
 
     if (wants_to_add_mark && !mark_hitbox_is_hovered)
     {
-        const auto position{(ImGui::GetIO().MousePos.x - gradient_bar_position.x) / gradient_size.x};
+        const auto position{(ImGui::GetIO().MousePos.x - gradient_bar_position.x) / gradient_bar_size.x};
         add_mark_with_chosen_mode({position, WrapMode::Clamp}, rng, settings.should_use_a_random_color_for_the_new_marks);
         _dragged_mark.reset();
         modified = true;
         // ImGui::OpenPopup("SelectedMarkColorPicker");
     }
 
-    modified |= mouse_dragging_interactions(gradient_bar_position, gradient_size, settings);
+    modified |= mouse_dragging_interactions(gradient_bar_position, gradient_bar_size, settings);
     if (!(settings.flags & Flag::NoDragDownToDelete))
     {
         // If mouse released and there is still a mark hidden, then it becomes a mark to delete
@@ -501,6 +543,11 @@ auto GradientWidget::widget(
         modified = true;
     }
     ImGui::EndGroup();
+
+
+    draw_transparency_editor(transparency_editor_position, transparency_editor_size);
+
+
     const auto is_there_a_tooltip{!(settings.flags & Flag::NoTooltip)};
     const auto is_there_remove_button{!(settings.flags & Flag::NoRemoveButton)};
     if (!_gradient.is_empty())
@@ -566,7 +613,7 @@ auto GradientWidget::widget(
                 ImGui::SameLine();
             }
             auto position = selected_mark->position; // Make a copy, we can't modify the position directly because we need to pass through set_mark_position() because it has some invariants to presere (sorting the marks)
-            if (position.imgui_widget("##3", gradient_size.x * 0.25f))
+            if (position.imgui_widget("##3", gradient_bar_size.x * 0.25f))
             {
                 _dragged_mark.reset();
                 gradient().set_mark_position(_selected_mark, position);
@@ -596,7 +643,7 @@ auto GradientWidget::widget(
     }
 
     { // Border
-        const ImRect border_rect = compute_border_rect(label, settings, gradient_bar_position, gradient_size);
+        const ImRect border_rect = compute_border_rect(label, settings, widget_position, widget_size);
 
         // Draw border
         if (!(settings.flags & Flag::NoBorder))
