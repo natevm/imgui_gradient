@@ -199,6 +199,7 @@ auto GradientWidget::draw_transparency_editor(
         ImVec2          editor_position,
         ImVec2          editor_size) ->bool
 {
+    bool _modified = false;
     ImGui::InvisibleButton("##canvas", editor_size);
     static auto offset = ImVec2(30, 30);
     ImVec2 r_min = ImGui::GetItemRectMin();
@@ -208,6 +209,7 @@ auto GradientWidget::draw_transparency_editor(
         ImVec2 point((ImGui::GetIO().MouseClickedPos[0].x - r_min.x)/(r_max.x-r_min.x), 
                         (ImGui::GetIO().MouseClickedPos[0].y - r_min.y)/(r_max.y-r_min.y));
         transparency_points.insert_or_assign(point.x, point);
+        _modified = true;
     }
 
 
@@ -224,7 +226,7 @@ auto GradientWidget::draw_transparency_editor(
         p0 = p1;
     }
     ImGui::PopClipRect();
-    return true;
+    return _modified;
 }
     
 
@@ -545,7 +547,7 @@ auto GradientWidget::widget(
     ImGui::EndGroup();
 
 
-    draw_transparency_editor(transparency_editor_position, transparency_editor_size);
+    modified |= draw_transparency_editor(transparency_editor_position, transparency_editor_size);
 
 
     const auto is_there_a_tooltip{!(settings.flags & Flag::NoTooltip)};
@@ -627,6 +629,10 @@ auto GradientWidget::widget(
         if (ImGui::Button("Reset"))
         {
             _gradient = {};
+            transparency_points = {
+                {0.f, ImVec2(0.0f, 1.f)},
+                {1.f, ImVec2(1.0f, 0.f)}
+            };
             modified  = true;
         }
     }
@@ -699,4 +705,25 @@ auto GradientWidget::widget(const char* label, const Settings& settings) -> bool
 {
     return widget(label, &default_rng, settings);
 }
+
+float GradientWidget::TransparencyAt(float x) const
+{
+    //find the two points that x is between and interpolate use trasparency_points
+    for (auto it = transparency_points.begin(); it != transparency_points.end(); it++)
+    {
+        auto next = it++;
+        it--;
+        if (x >= it->first && x <= next->first)
+        {
+            float x1 = it->second.x;
+            float x2 = next->second.x;
+            float y1 = it->second.y;
+            float y2 = next->second.y;
+            float m = (y2 - y1) / (x2 - x1);
+            float b = y1 - m * x1;
+            return m * x + b;
+        }
+    } 
+}
+
 }; // namespace ImGG

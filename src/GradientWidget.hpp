@@ -59,6 +59,8 @@ public:
         const Settings&       settings = {}
     ) -> bool;
 
+    float TransparencyAt(float x) const;
+
 private:
     void add_mark_with_chosen_mode(RelativePosition relative_pos, RandomNumberGenerator rng, bool add_a_random_color);
 
