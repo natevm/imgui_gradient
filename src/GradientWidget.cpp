@@ -142,8 +142,22 @@ static auto color_button(
     return ImGui::ColorEdit4(
         "##colorpicker1",
         reinterpret_cast<float*>(&selected_mark.color),
-        flags | ImGuiColorEditFlags_NoInputs | (should_show_tooltip ? 0 : ImGuiColorEditFlags_NoTooltip)
+        flags | ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_AlphaBar | (should_show_tooltip ? 0 : ImGuiColorEditFlags_NoTooltip)
     );
+}
+
+static auto gray_button(
+    Mark&                     selected_mark,
+    const bool                should_show_tooltip,
+    const ImGuiColorEditFlags flags = 0
+) -> bool
+{
+    ImGui::SetNextItemWidth(50);
+    float tmp = selected_mark.color.x;
+    bool edited = ImGui::SliderFloat("##alphaslider1", &tmp, 0.f, 1.f);
+    selected_mark.color.x = selected_mark.color.y = selected_mark.color.z = tmp;
+    selected_mark.color.w = 1.f;
+    return edited;
 }
 
 static auto open_color_picker_popup(
@@ -398,18 +412,19 @@ static auto compute_number_of_lines_under_bar(Settings const& settings) -> float
 {
     float res{0.f};
 
-    if (!(settings.flags & Flag::NoResetButton))
+    if (!(settings.flags & Flag::NoAddButton)
+        || !(settings.flags & Flag::NoRemoveButton)
+        || !(settings.flags & Flag::NoPositionSlider)
+        || !(settings.flags & Flag::NoColorEdit)
+        || !(settings.flags & Flag::NoResetButton))
     {
         res += 1.f;
     }
 
-    if (!(settings.flags & Flag::NoAddButton)
-        || !(settings.flags & Flag::NoRemoveButton)
-        || !(settings.flags & Flag::NoPositionSlider)
-        || !(settings.flags & Flag::NoColorEdit))
-    {
-        res += 1.f;
-    }
+    // if (!(settings.flags & Flag::NoColormapDropdown))
+    // {
+    //     res += 1.f;
+    // }
 
     return res;
 }
@@ -461,47 +476,58 @@ auto GradientWidget::widget(
 
     const auto gradient_bar_size = ImVec2{widget_size.x, widget_size.y * 0.3f};
     auto gradient_bar_position = ImVec2{internal::gradient_position(settings.horizontal_margin)};
-    gradient_bar_position.y += settings.gradient_height * 0.2f + settings.horizontal_margin; //move it down so combo box can be placed above it
-
-
-    const auto transparency_editor_size = ImVec2{widget_size.x, widget_size.y * 0.4f};
-    auto transparency_editor_position = ImVec2{internal::gradient_position(settings.horizontal_margin)};
-    transparency_editor_position.y += gradient_bar_position.y + settings.horizontal_margin; //move it down so combo box can be placed above it
 
     //Draw colomap picker
-    ImGui::PushItemWidth(picker_size.x);
-    auto current_item = EmbeddedColorMaps::names[selectedColorMap];
-    if (ImGui::BeginCombo("##combo", current_item))
-    {
-        for (int n = 0; n < IM_ARRAYSIZE(EmbeddedColorMaps::names); n++)
-        {
-            bool is_selected = (current_item == EmbeddedColorMaps::names[n]);
-            if (ImGui::Selectable(EmbeddedColorMaps::names[n], is_selected))
-            {
-                //TODO clear all the marks
-                gradient().clear();
-                selectedColorMap = n;
-                const int number_of_knobs = EmbeddedColorMaps::sizes[selectedColorMap]/4;
-                auto colormap = fromPNG(EmbeddedColorMaps::maps[selectedColorMap], EmbeddedColorMaps::sizes[selectedColorMap]);
+    const auto is_there_colormap_picker{!(settings.flags & Flag::NoColormapDropdown)};
+    if (is_there_colormap_picker) {
+        gradient_bar_position.y += settings.gradient_height * 0.2f + settings.horizontal_margin; //move it down so combo box can be placed above it
 
-                for (int i = 0; i < colormap.size(); ++i)
+        ImGui::PushItemWidth(picker_size.x);
+        ImGui::SetCursorScreenPos(
+            ImGui::GetCursorScreenPos() + ImVec2(settings.horizontal_margin, 0)
+        );
+
+        auto current_item = EmbeddedColorMaps::names[selectedColorMap];
+        if (ImGui::BeginCombo("##combo", current_item))
+        {
+            for (int n = 0; n < IM_ARRAYSIZE(EmbeddedColorMaps::names); n++)
+            {
+                bool is_selected = (current_item == EmbeddedColorMaps::names[n]);
+                if (ImGui::Selectable(EmbeddedColorMaps::names[n], is_selected))
                 {
-                    const auto position = RelativePosition{static_cast<float>(i) / (colormap.size() - 1)};
-                    add_mark_with_chosen_mode(position, rng, false);
-                    
-                    gradient().set_mark_color(_selected_mark, colormap[i]);
+                    //TODO clear all the marks
+                    gradient().clear();
+                    selectedColorMap = n;
+                    const int number_of_knobs = EmbeddedColorMaps::sizes[selectedColorMap]/4;
+                    auto colormap = fromPNG(EmbeddedColorMaps::maps[selectedColorMap], EmbeddedColorMaps::sizes[selectedColorMap]);
+
+                    for (int i = 0; i < 5; ++i) //colormap.size(); ++i)
+                    {
+                        float t = float(i) / (5.f - 1.f);
+
+                        const auto position = RelativePosition{static_cast<float>(i) / (5.f - 1)};
+                        add_mark_with_chosen_mode(position, rng, false);
+                        
+                        gradient().set_mark_color(_selected_mark, colormap[t * (colormap.size() - 1)]);
+                    }
+                    modified = true;
                 }
-                modified = true;
+                if (is_selected)
+                    ImGui::SetItemDefaultFocus();
             }
-            if (is_selected)
-                ImGui::SetItemDefaultFocus();
+            ImGui::EndCombo();
         }
-        ImGui::EndCombo();
+        ImGui::PopItemWidth();
     }
-    ImGui::PopItemWidth();
     
     ImGui::BeginGroup();
 
+    // ImVec2 dropSize = ImVec2(picker_size.x, 0);
+    // ImVec2 tmp = gradient_bar_size;
+    // if (is_there_colormap_picker) {
+    //     dropSize = ImVec2(picker_size.x, 1000);
+    //     tmp + ImVec2(0, dropSize.y);
+    // }
     ImGui::InvisibleButton("gradient_editor", gradient_bar_size);
     draw_gradient_bar(_gradient, gradient_bar_position, gradient_bar_size);
 
@@ -546,10 +572,6 @@ auto GradientWidget::widget(
     }
     ImGui::EndGroup();
 
-
-    modified |= draw_transparency_editor(transparency_editor_position, transparency_editor_size);
-
-
     const auto is_there_a_tooltip{!(settings.flags & Flag::NoTooltip)};
     const auto is_there_remove_button{!(settings.flags & Flag::NoRemoveButton)};
     if (!_gradient.is_empty())
@@ -592,19 +614,37 @@ auto GradientWidget::widget(
         }
     }
 
+    if (!(settings.flags & Flag::NoResetButton))
+    {
+        ImGui::SameLine();
+        if (ImGui::Button("Reset"))
+        {
+            _gradient = {};
+            transparency_points = {
+                {0.f, ImVec2(0.0f, 1.f)},
+                {1.f, ImVec2(1.0f, 0.f)}
+            };
+            modified  = true;
+        }
+    }
+
     bool force_dont_deselect_mark = false;
 
     const auto selected_mark = gradient().find(_selected_mark);
     if (selected_mark)
     {
         const auto is_there_color_edit{!(settings.flags & Flag::NoColorEdit)};
+        const auto is_there_color{!(settings.flags & Flag::NoColor)};
         if (is_there_color_edit)
         {
             if (is_there_remove_button || is_there_add_button)
             {
                 ImGui::SameLine();
             }
-            modified |= color_button(*selected_mark, is_there_a_tooltip, settings.color_edit_flags);
+            if (is_there_color)
+                modified |= color_button(*selected_mark, is_there_a_tooltip, settings.color_edit_flags);
+            else 
+                modified |= gray_button(*selected_mark, is_there_a_tooltip, settings.color_edit_flags);
             force_dont_deselect_mark = ImGui::IsItemActive(); // The color popup can go outside the border, but we don't want to deselect the mark when we click on it
         }
 
@@ -624,19 +664,6 @@ auto GradientWidget::widget(
         }
     }
 
-    if (!(settings.flags & Flag::NoResetButton))
-    {
-        if (ImGui::Button("Reset"))
-        {
-            _gradient = {};
-            transparency_points = {
-                {0.f, ImVec2(0.0f, 1.f)},
-                {1.f, ImVec2(1.0f, 0.f)}
-            };
-            modified  = true;
-        }
-    }
-
     if (selected_mark) // Optimization, we don't need to even check if the popup was opened if there is no selected mark
     {
         const auto picker_popup_size{internal::line_height() * 12.f};
@@ -648,43 +675,43 @@ auto GradientWidget::widget(
         );
     }
 
-    { // Border
-        const ImRect border_rect = compute_border_rect(label, settings, widget_position, widget_size);
+    // { // Border
+    //     const ImRect border_rect = compute_border_rect(label, settings, widget_position, widget_size);
 
-        // Draw border
-        if (!(settings.flags & Flag::NoBorder))
-            draw_border(border_rect);
+    //     // Draw border
+    //     if (!(settings.flags & Flag::NoBorder))
+    //         draw_border(border_rect);
 
-        // Deselect mark if we click outside the border
-        {
-            // Check if bounding box hovered
-            ImGui::ItemAdd(border_rect, ImGui::GetID("gradient border"));
-            _hover_checker.update();
+    //     // Deselect mark if we click outside the border
+    //     {
+    //         // Check if bounding box hovered
+    //         ImGui::ItemAdd(border_rect, ImGui::GetID("gradient border"));
+    //         _hover_checker.update();
 
-            // Check if one of the widgets is active
-            if (ImGui::IsPopupOpen("SelectedMarkColorPicker")
-                || force_dont_deselect_mark)
-            {
-                _hover_checker.force_consider_hovered();
-            }
+    //         // Check if one of the widgets is active
+    //         if (ImGui::IsPopupOpen("SelectedMarkColorPicker")
+    //             || force_dont_deselect_mark)
+    //         {
+    //             _hover_checker.force_consider_hovered();
+    //         }
 
-            // Deselect mark if clicking while not hovered
-            if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !_hover_checker.is_item_hovered())
-                _selected_mark = {};
-        }
-    }
+    //         // Deselect mark if clicking while not hovered
+    //         if (ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !_hover_checker.is_item_hovered())
+    //             _selected_mark = {};
+    //     }
+    // }
 
     ImGui::PopID();
     ImGui::EndGroup();
-    ImGui::SetCursorScreenPos(
-        internal::gradient_position(0.f)
-        + ImVec2{
-            0.f,
-            !(settings.flags & Flag::NoLabel)
-                ? ImGui::GetStyle().ItemSpacing.y * 2.f
-                : ImGui::GetStyle().ItemSpacing.y * 3.f,
-        }
-    );
+    // ImGui::SetCursorScreenPos(
+    //     internal::gradient_position(0.f)
+    //     + ImVec2{
+    //         0.f,
+    //         !(settings.flags & Flag::NoLabel)
+    //             ? ImGui::GetStyle().ItemSpacing.y * 2.f
+    //             : ImGui::GetStyle().ItemSpacing.y * 3.f,
+    //     }
+    // );
     ImGuiContext& g = *GImGui;
 
     if (modified)

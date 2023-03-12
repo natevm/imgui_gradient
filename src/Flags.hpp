@@ -17,6 +17,8 @@ enum ImGuiGradientFlag {
     NoColorEdit           = 1 << 8,                         // No color edit widget for the selected mark
     NoDragDownToDelete    = 1 << 11,                        // Don't delete a mark when dragging it down
     NoBorder              = 1 << 12,                        // No border around the gradient widget
+    NoColormapDropdown    = 1 << 13,                        // Don't add the colormap dropdown above the gradient widget
+    NoColor               = 1 << 14,                        // Force a grayscale colormap
     NoAddAndRemoveButtons = NoAddButton | NoRemoveButton,   // No "+" and "-" buttons
     NoMarkOptions         = NoColorEdit | NoPositionSlider, // No widgets for the selected mark
 };
