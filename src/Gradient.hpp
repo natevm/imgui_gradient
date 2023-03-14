@@ -44,7 +44,7 @@ private:
 private:
     std::list<Mark> _marks{
         // We use a std::list instead of a std::vector because it doesn't invalidate our iterators when adding, removing or sorting the marks.
-        Mark{RelativePosition{0.f}, ColorRGBA{0.f, 0.f, 0.f, 1.f}},
+        Mark{RelativePosition{0.f}, ColorRGBA{1.f, 1.f, 1.f, 1.f}},
         Mark{RelativePosition{1.f}, ColorRGBA{1.f, 1.f, 1.f, 1.f}},
     };
     /// Controls how the colors are interpolated between two marks.
