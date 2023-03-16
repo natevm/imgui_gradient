@@ -8,6 +8,8 @@
 #include "MarkId.hpp"
 #include "Settings.hpp"
 #include <map>
+#include <fstream>
+#include <iostream>
 
 
 namespace ImGG {
@@ -93,6 +95,9 @@ private:
         {0.0f, ImVec2(0.0f, 1.0f)},
         {1.0f, ImVec2(1.0f, 0.0f)}
     };
+
+    void SaveGradient();
+    void LoadGradient();
 };
 
 } // namespace ImGG

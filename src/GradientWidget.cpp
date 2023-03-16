@@ -495,7 +495,6 @@ auto GradientWidget::widget(
                 bool is_selected = (current_item == EmbeddedColorMaps::names[n]);
                 if (ImGui::Selectable(EmbeddedColorMaps::names[n], is_selected))
                 {
-                    //TODO clear all the marks
                     gradient().clear();
                     selectedColorMap = n;
                     const int number_of_knobs = EmbeddedColorMaps::sizes[selectedColorMap]/4;
@@ -675,6 +674,17 @@ auto GradientWidget::widget(
         );
     }
 
+    if(ImGui::Button("Save"))
+    {
+        SaveGradient();
+    }
+    ImGui::SameLine();
+    if(ImGui::Button("Load"))
+    {
+        LoadGradient();
+        modified = true;
+    }
+
     // { // Border
     //     const ImRect border_rect = compute_border_rect(label, settings, widget_position, widget_size);
 
@@ -753,4 +763,53 @@ float GradientWidget::TransparencyAt(float x) const
     } 
 }
 
-}; // namespace ImGG
+void GradientWidget::SaveGradient()
+{
+    std::ofstream file;
+    file.open("gradient.gtf");
+    file << _gradient.get_marks().size() << std::endl;
+    file << selectedColorMap << std::endl;
+    for (auto& mark : _gradient.get_marks())
+    {
+        file << mark.position.get() << " " << mark.color.x << " " << mark.color.y << " " << mark.color.z << " " << mark.color.w << std::endl;
+    }
+    file.close();
+}
+
+void GradientWidget::LoadGradient()
+{
+    char filename[1024];
+    FILE *f = popen("zenity --file-selection", "r");
+    fgets(filename, 1024, f);
+    int ret=pclose(f);
+    if(ret<0)
+        return;
+
+    printf("%s\n", filename);
+    //write file name into a string
+    std::string file_name(filename);
+
+    //remove the newline character
+    file_name.erase(std::remove(file_name.begin(), file_name.end(), '\n'), file_name.end());//wow thanks co-pilot!! This is bizarre, but it works(this last bit was also auto-completed by co-pilot)
+    std::fstream file(file_name, std::ios_base::in);
+
+
+    gradient().clear();
+    int numMarks;
+    file >> numMarks;
+    file >> selectedColorMap;
+
+    for (int i = 0; i < numMarks; i++)
+    {
+        float pos;
+        float r;
+        float g;
+        float b;
+        float a;
+        file >> pos >> r >> g >> b >> a;
+        printf("%f %f %f %f %f\n", pos, r, g, b, a);
+        gradient().add_mark({RelativePosition(pos), ImVec4(r,g,b,a)});
+    }
+    file.close();
+}
+} // namespace ImGG 
