@@ -19,7 +19,8 @@ static void draw_uniform_square(
         bottom_right_corner,
         color,
         rounding,
-        ImDrawFlags_Closed
+        // ImDrawFlags_Closed
+        ImDrawFlags_RoundCornersAll
     );
 }
 
@@ -135,7 +136,12 @@ static auto mark_invisible_button(
     const auto button_size = ImVec2{
         mark_square_size * 3.f,
         gradient_height + mark_square_size * 2.f};
-    ImGui::InvisibleButton("mark", button_size, ImGuiButtonFlags_MouseButtonMiddle | ImGuiButtonFlags_MouseButtonLeft);
+    
+    char id[64];
+    snprintf(id, sizeof(id), "mark_%.3f_%.3f", position_to_draw_mark.x, position_to_draw_mark.y);
+    ImGui::InvisibleButton(id, button_size, ImGuiButtonFlags_MouseButtonMiddle | ImGuiButtonFlags_MouseButtonLeft);
+
+    // ImGui::InvisibleButton("mark", button_size, ImGuiButtonFlags_MouseButtonMiddle | ImGuiButtonFlags_MouseButtonLeft);
     return ImGui::IsItemHovered();
 }
 

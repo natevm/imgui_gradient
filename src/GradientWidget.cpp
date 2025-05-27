@@ -656,12 +656,15 @@ auto GradientWidget::widget(
                 ImGui::SameLine();
             }
             auto position = selected_mark->position; // Make a copy, we can't modify the position directly because we need to pass through set_mark_position() because it has some invariants to presere (sorting the marks)
+
+            ImGui::PushID(selected_mark);
             if (position.imgui_widget("##3", gradient_bar_size.x * 0.25f))
             {
                 _dragged_mark.reset();
                 gradient().set_mark_position(_selected_mark, position);
                 modified = true;
             }
+            ImGui::PopID();
         }
     }
 
