@@ -8,7 +8,7 @@
 #include "internal.hpp"
 #include "tooltip.hpp"
 #include "embeddedColorMaps.h"
-#define STB_IMAGE_IMPLEMENTATION
+// #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
 inline float srgb_to_linear(const float x)
