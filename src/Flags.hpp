@@ -19,6 +19,9 @@ enum ImGuiGradientFlag {
     NoBorder              = 1 << 12,                        // No border around the gradient widget
     NoColormapDropdown    = 1 << 13,                        // Don't add the colormap dropdown above the gradient widget
     NoColor               = 1 << 14,                        // Force a grayscale colormap
+    NoClickToAdd          = 1 << 15,                        // Don't add a mark when clicking on the gradient bar
+    LockEndMarks          = 1 << 16,                        // Don't allow to move the first and last marks
+    Monotonic             = 1 << 17,                        // Preserves the monotonicity of the gradient when adding a new mark
     NoAddAndRemoveButtons = NoAddButton | NoRemoveButton,   // No "+" and "-" buttons
     NoMarkOptions         = NoColorEdit | NoPositionSlider, // No widgets for the selected mark
 };

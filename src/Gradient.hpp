@@ -33,6 +33,7 @@ public:
     auto interpolation_mode() -> Interpolation&;
 
     void spread_marks_evenly();
+    void clamp_gray_to_neighbors(const ImGG::MarkId& edited_id);
 
     auto get_marks() const -> const std::list<Mark>&;
 

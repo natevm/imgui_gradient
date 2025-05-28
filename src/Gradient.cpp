@@ -9,6 +9,38 @@ void Gradient::sort_marks()
     _marks.sort([](const Mark& a, const Mark& b) { return a.position < b.position; });
 }
 
+void Gradient::clamp_gray_to_neighbors(const ImGG::MarkId& edited_id)
+{
+    auto& marks = const_cast<std::list<ImGG::Mark>&>(get_marks());
+    if (marks.size() < 3) return;
+
+    auto it = std::find_if(marks.begin(), marks.end(),
+                           [&](const ImGG::Mark& m) { return ImGG::MarkId{m} == edited_id; });
+
+    if (it == marks.end()) return;
+
+    auto prev = it == marks.begin() ? it : std::prev(it);
+    auto next = std::next(it);
+
+    float lower = prev == it ? 0.0f : prev->color.x;
+    float upper = next == marks.end() ? 1.0f : next->color.x;
+
+    it->color.x = it->color.y = it->color.z = ImClamp(it->color.x, lower, upper);
+
+    // auto& marks = const_cast<std::list<ImGG::Mark>&>(get_marks());
+    // const size_t n = marks.size();
+    // if (n < 2) return;
+
+    // float step = 1.0f / static_cast<float>(n - 1);
+    // float value = 0.0f;
+
+    // for (auto& mark : marks)
+    // {
+    //     mark.color = ImVec4(value, value, value, 1.0f);
+    //     value += step;
+    // }
+}
+
 auto Gradient::find(MarkId id) const -> const Mark*
 {
     return id.find(*this);

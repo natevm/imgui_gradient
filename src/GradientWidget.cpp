@@ -367,6 +367,18 @@ auto GradientWidget::mouse_dragging_interactions(
     }
     bool        is_dragging  = false;
     auto* const drag_mark_id = gradient().find(_dragged_mark);
+
+    if ((settings.flags & Flag::LockEndMarks) && drag_mark_id) {
+        const auto& marks = gradient().get_marks();
+        if (marks.size() >= 2) {
+            MarkId first_id{marks.front()};
+            MarkId last_id{marks.back()};
+            if (_dragged_mark == first_id || _dragged_mark == last_id) {
+                return false; // Disallow dragging for locked endpoints
+            }
+        }
+    }
+
     if (ImGui::IsMouseDragging(ImGuiMouseButton_Left) && drag_mark_id)
     {
         const auto map{ImClamp((ImGui::GetIO().MousePos.x - gradient_bar_position.x) / gradient_size.x, 0.f, 1.f)};
@@ -389,6 +401,10 @@ auto GradientWidget::mouse_dragging_interactions(
             }
         }
     }
+
+    if ((settings.flags & Flag::Monotonic))
+        _gradient.clamp_gray_to_neighbors(_selected_mark);
+
     return is_dragging;
 }
 
@@ -543,7 +559,7 @@ auto GradientWidget::widget(
     const auto mark_hitbox_is_hovered = res.hitbox_is_hovered;
     modified |= res.selected_mark_changed;
 
-    if (wants_to_add_mark && !mark_hitbox_is_hovered)
+    if (!(settings.flags & Flag::NoClickToAdd) && (wants_to_add_mark && !mark_hitbox_is_hovered))
     {
         const auto position{(ImGui::GetIO().MousePos.x - gradient_bar_position.x) / gradient_bar_size.x};
         add_mark_with_chosen_mode({position, WrapMode::Clamp}, rng, settings.should_use_a_random_color_for_the_new_marks);
@@ -637,15 +653,32 @@ auto GradientWidget::widget(
         const auto is_there_color_edit{!(settings.flags & Flag::NoColorEdit)};
         const auto is_there_color{!(settings.flags & Flag::NoColor)};
         if (is_there_color_edit)
-        {
+        {   
             if (is_there_remove_button || is_there_add_button)
             {
                 ImGui::SameLine();
             }
+
+            bool is_locked = (settings.flags & Flag::LockEndMarks) &&
+                (_selected_mark == MarkId{gradient().get_marks().front()} ||
+                 _selected_mark == MarkId{gradient().get_marks().back()});
+            if (is_locked)
+            {
+                ImGui::BeginDisabled();
+            }
             if (is_there_color)
                 modified |= color_button(*selected_mark, is_there_a_tooltip, settings.color_edit_flags);
-            else 
+            else {
                 modified |= gray_button(*selected_mark, is_there_a_tooltip, settings.color_edit_flags);
+
+                if ((settings.flags & Flag::Monotonic))
+                    _gradient.clamp_gray_to_neighbors(_selected_mark);
+            }
+
+            if (is_locked)
+            {
+                ImGui::EndDisabled();
+            }
             force_dont_deselect_mark = ImGui::IsItemActive(); // The color popup can go outside the border, but we don't want to deselect the mark when we click on it
         }
 
