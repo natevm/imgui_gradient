@@ -153,7 +153,10 @@ static auto gray_button(
     const ImGuiColorEditFlags flags = 0
 ) -> bool
 {
-    ImGui::SetNextItemWidth(50);
+
+    float avail_width = ImGui::GetContentRegionAvail().x;
+
+    ImGui::SetNextItemWidth(avail_width * .5f);
     float tmp = selected_mark.color.x;
     bool edited = ImGui::SliderFloat("##alphaslider1", &tmp, 0.f, 1.f);
     selected_mark.color.x = selected_mark.color.y = selected_mark.color.z = tmp;
